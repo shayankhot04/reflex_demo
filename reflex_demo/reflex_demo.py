@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 csv_file = "sample_superstore_render.csv"
 
 # Render Postgres connection string
-db_url = os.environ.get("DATABASE_URL")
+db_url = "postgresql://sales_sv1k_user:lWYDXUHqVTwMzzJemVcNw9uR3nNxlEQu@dpg-d3mdv5d6ubrc73enh4i0-a.oregon-postgres.render.com/sales_sv1k"
 # "postgresql://sales_sv1k_user:lWYDXUHqVTwMzzJemVcNw9uR3nNxlEQu@dpg-d3mdv5d6ubrc73enh4i0-a.oregon-postgres.render.com/sales_sv1k"
 
 # Create SQLAlchemy engine
