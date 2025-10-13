@@ -1,0 +1,191 @@
+import reflex as rx
+from rxconfig import config
+import pandas as pd
+from datetime import datetime
+import urllib.parse
+from sqlalchemy import create_engine, Column, String, Integer, Date
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+from typing import TypedDict
+
+
+class SidebarItem(TypedDict):
+    name: str
+    icon: str
+    badge: int | None
+
+
+class SidebarState(rx.State):
+    sidebar_items: list[SidebarItem] = [
+        {"name": "Summary", "icon": "home", "badge": None},
+        {"name": "Branch", "icon": "edit", "badge": None},
+        {"name": "Course", "icon": "image", "badge": None},
+        {"name": "Target", "icon": "file-text", "badge": None},
+        {"name": "Marketting", "icon": "message-square", "badge": None},
+        # {"name": "Appearance", "icon": "layout", "badge": None},
+        # {"name": "Plugins", "icon": "shopping-bag", "badge": None},
+        # {"name": "Users", "icon": "users", "badge": None},
+        # {"name": "Settings", "icon": "settings", "badge": None},
+        # {"name": "Tools", "icon": "wrench", "badge": None},
+    ]
+    selected_page: str = "Summary"
+
+    @rx.event
+    def set_selected_page(self, page: str):
+        self.selected_page = page
+
+
+----------------------------------------
+
+def sidebar_item_component(item: rx.Var[SidebarItem]) -> rx.Component:
+    # Each sidebar item (button) is built dynamically using the data in SidebarState.sidebar_items
+    # `item` contains: { "icon": ..., "name": ..., "badge": ... }
+    return rx.el.button(
+
+        # --- 🔹 Inside the button: icon, name, optional badge ---
+        rx.el.div(
+            # 🧩 ICON (small logo beside text)
+            # h-5 w-5 → icon size; increase for bigger icons
+            rx.icon(item["icon"], class_name="h-5 w-5"),
+
+            # 🧩 ITEM NAME (the text label)
+            # font-medium → medium text weight; can change to font-semibold or text-sm/lg for size
+            rx.el.span(item["name"], class_name="font-medium"),
+
+            # 🧩 OPTIONAL BADGE (for showing counts, alerts, etc.)
+            rx.cond(
+                item["badge"],  # if the item has a badge value
+                rx.el.span(
+                    item["badge"].to_string(),
+                    class_name=(
+                        # ml-auto → pushes badge to the right
+                        # text-xs → small text
+                        # bg-blue-500 → blue background (you can change this for each type)
+                        # rounded-md → pill-like edges
+                        # px / py → padding inside badge (adjust size)
+                        "ml-auto text-xs font-semibold bg-blue-500 text-white rounded-md px-1.5 py-0.5"
+                    ),
+                ),
+                rx.fragment(),  # if no badge, render nothing
+            ),
+
+            # flex → horizontal layout for icon + text + badge
+            # items-center → vertical centering
+            # space-x-3 → gap between icon and text
+            # w-full → full button width
+            class_name="flex items-center space-x-3 w-full",
+        ),
+
+        # --- 🔸 BEHAVIOR WHEN CLICKED ---
+        # Calls the state function to set the selected page name
+        on_click=lambda: SidebarState.set_selected_page(item["name"]),
+
+        # --- 🎨 BUTTON STYLE (dynamic based on selection) ---
+        class_name=rx.cond(
+            SidebarState.selected_page == item["name"],
+
+            # ✅ STYLE when this page is selected (active)
+            # bg-slate-700 → selected background color (change this to customize highlight)
+            # text-white → selected text color
+            # px / py → internal padding for button height & width
+            # rounded-lg → rounded corners
+            "w-full text-left px-3 py-2 rounded-lg bg-slate-700 text-white",
+
+            # ⚪ STYLE when not selected (normal / hover)
+            # text-gray-400 → dimmed text
+            # hover:bg-slate-800 → darker background on hover
+            # hover:text-white → brighten text on hover
+            "w-full text-left px-3 py-2 rounded-lg text-gray-400 hover:bg-slate-800 hover:text-white",
+        ),
+    )
+--------------------------------------------------------------------
+
+def sidebar() -> rx.Component:
+    return rx.el.aside(
+        rx.el.div(
+
+            # --- 🔷 HEADER (Logo + Title) SECTION ---
+            rx.el.div(
+                rx.hstack(
+                    # Sidebar Icon (size controlled via h-8 w-8)
+                    rx.icon("box", class_name="h-8 w-8 text-white"),
+                    # Title text (heading size controls font size)
+                    rx.heading("DataMelon", size="6"),
+                    # p-5 → padding inside the top header area (around icon + title)
+                    #    Increase for more space inside header, decrease for tighter look.
+                    class_name="p-5",
+                )
+            ),
+
+            # --- 🔹 NAVIGATION ITEMS (Button List) SECTION ---
+            rx.el.nav(
+                rx.foreach(SidebarState.sidebar_items, sidebar_item_component),
+                class_name=(
+                    # flex flex-col → stacks items vertically
+                    # space-y-4 → vertical gap BETWEEN each sidebar button (Increase for more spacing)
+                    # px-2 → left-right padding (space between sidebar border and buttons)
+                    "flex flex-col space-y-4 px-2"
+                ),
+            ),
+
+            # --- 🧱 MAIN WRAPPER (Contains Header + Nav) ---
+            class_name=(
+                # flex flex-col → ensures header and nav are stacked vertically
+                # space-y-4 → vertical gap between header section and nav items
+                "flex flex-col space-y-4"
+            ),
+        ),
+
+        # --- 🎨 SIDEBAR CONTAINER (Main Aside Element) ---
+        class_name=(
+            # w-58 → controls sidebar width (there’s no Tailwind w-58, use w-56 or w-60 instead)
+            # bg-gradient-to-b → creates vertical gradient (top→bottom)
+            # from-[#0f172a] → top color
+            # to-[#0083b8] → bottom color
+            # text-white → makes all text white
+            # flex-shrink-0 → prevents sidebar from shrinking when window resizes
+            # py-4 → vertical padding inside the sidebar (top and bottom)
+            # shadow-[4px_0_12px_rgba(0,0,0,0.5)] → adds right-side shadow (4px offset, blur 12px, darker 0.5 opacity)
+            "w-56 bg-gradient-to-b from-[#0f172a] to-[#0083b8] text-white flex-shrink-0 py-4 "
+            "shadow-[4px_0_12px_rgba(0,0,0,0.5)]"
+        ),
+    )
+--------------------------------------------------------------------
+Skeleton of our appp
+
+def index() -> rx.Component:
+    return rx.el.main(     # 🧱 Main container of the page (everything goes inside this)
+        rx.el.div(
+            # --- 🟦 LEFT SIDEBAR ---
+            sidebar(),     # Calls your sidebar() function and places it on the left side
+
+            # --- 🟨 RIGHT CONTENT AREA ---
+            rx.el.div(
+                # Page header / content title
+                rx.el.h1(
+                    "Content for:",   # Static text
+                    # Dynamic text that updates when a sidebar item is clicked
+                    rx.el.span(SidebarState.selected_page, class_name="font-bold"),
+                    # 🖋️ text-2xl = large heading size
+                    # font-semibold = medium-bold font
+                    # text-gray-800 = dark gray text color
+                    class_name="text-2xl font-semibold text-gray-800",
+                ),
+
+                # p-8 → padding inside content area (space from edges)
+                # flex-1 → allows this div to take remaining horizontal space (next to sidebar)
+                class_name="flex-1 p-8",
+            ),
+
+            # --- 🔹 WRAPPER (Sidebar + Content Side by Side) ---
+            class_name="flex min-h-screen",
+            # flex → places sidebar and content horizontally next to each other
+            # min-h-screen → ensures the layout covers the full screen height
+        ),
+
+        # --- 🎨 MAIN PAGE STYLING ---
+        class_name="font-['Inter'] bg-gray-50",
+        # font-[‘Inter’] → sets overall font for the page (you can use any Google font)
+        # bg-gray-50 → light gray background for the main page area
+    )
+
