@@ -1,0 +1,145 @@
+
+#-------------------------------------------- Form Template -----------------------------------------------------
+import reflex as rx
+from rxconfig import config
+import pandas as pd
+from datetime import datetime
+import urllib.parse
+from sqlalchemy import create_engine, Column, String, Integer, Date
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+.\.venv\Scripts\Activate.ps1
+
+
+from typing import TypedDict
+
+
+# ---------- Load Data ---------------------------------------------------------------------------------------------------
+# df = pd.read_csv("sample_superstore_2.csv", encoding="cp1252")
+
+USER = "postgres"                  # your username
+PASSWORD = "login@123"                  # your password
+HOST = "localhost"
+PORT = "5432"
+DB = "postgres"                     # your database name
+
+# URL encode the password
+PASSWORD_ENCODED = urllib.parse.quote_plus(PASSWORD)
+
+engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD_ENCODED}@{HOST}:{PORT}/{DB}")
+
+df = pd.read_sql("SELECT * FROM public.sales_import;", engine)
+
+df['orderdate'] = pd.to_datetime(df['orderdate'], errors='coerce')
+df['Year'] = df['orderdate'].dt.year
+
+
+# ---------- Formatting function ----------------------------------------------------------------------------------
+def format_number(n):
+    if abs(n) >= 1_000_000_000:
+        return f"{n/1_000_000_000:.1f}B"
+    elif abs(n) >= 1_000_000:
+        return f"{n/1_000_000:.1f}M"
+    elif abs(n) >= 1_000:
+        return f"{n/1_000:.1f}K"
+    else:
+        return str(round(n, 2))
+
+# ---------- Header Section --------------------------------------------------------------------------------------------
+def header() -> rx.Component:
+    return rx.box(
+        rx.heading(
+            "Executive Summary",
+            size="7",        # large, prominent text
+            color="Black",          # white font color
+            font_weight="bold"
+        ),
+        padding="15px",                # remove default padding to use full height
+        bg="light-grey",  # horizontal gradient
+        border_radius="lg",         # smooth rounded corners
+        width="100%",               # full width
+        height="70px",             # increased header height
+        display="flex",             # use flex to center content
+        align_items="center",       # vertically center the text
+        justify_content="center",   # horizontally center the text
+        text_align="left"
+    )
+#---------------Section Title ------------------------------------------------------------------------------------------------
+def section_title(text: str, font_size="2xl", color="gray.600",width ="100%") -> rx.Component:
+    return rx.text(text,font_size="20px",width = "100%")
+
+#----------------------------Table chart ----------------------------------------------------------------------------
+
+def table_chart(
+    dimensions: list,
+    measures: dict,
+    title: str = "",
+    header_bg: str = "#0083b8",
+    header_color: str = "white",
+    header_size: str = "4"
+) -> rx.Component:
+    """
+    dimensions = list of columns to group by (e.g. ["Region", "Category"])
+    measures = dict of {column: agg_func} (e.g. {"Sales": "sum", "Profit": "mean", "OrderID": "nunique"})
+    header_bg = column header background color
+    header_color = column header text color
+    header_size = column header text size (1-10)
+    """
+
+    # group and aggregate
+    agg_df = df.groupby(dimensions).agg(measures).reset_index()
+
+    # format numeric columns
+    for col, func in measures.items():
+        agg_df[col] = agg_df[col].apply(format_number)
+
+    # Reflex Data Table
+    return rx.box(
+        rx.vstack(
+            rx.text(title, size="4", weight="bold", padding_bottom="0.5rem"),
+            rx.divider(width="100%",color ="grey"),
+            rx.data_table(
+                data=agg_df,
+                pagination=True,
+                search=True,
+                sort=True,
+                header_style={
+                    "backgroundColor": header_bg,
+                    "color": header_color,
+                    "fontSize": header_size,  # 1-10 scale
+                    "fontWeight": "bold"
+                },
+            )
+        ),
+        padding="1rem",
+        border_radius="lg",
+        box_shadow="md",
+        bg="white",
+    )
+
+
+# ---------- Page Layout -------------------------------------------------------------------------------------------------------
+@rx.page()
+def index() -> rx.Component:
+    return rx.vstack(
+            header(),
+            # Table with custom header styling
+            table_chart(
+            dimensions=["category","subcategory","productname"],
+            measures={"sales": "sum","orderid": "nunique", "quantity": "sum", "profit": "sum"},
+            title="Product Summary Table",
+            header_bg="#0083b8",      # green background
+            header_color="#ffffff",   # white text
+            header_size="4"           # size from 1 to 10
+            ),
+            width = "100%",
+            bg="linear-gradient(to bottom, #ffffff, #f2f2f2)",
+            height = "100%"  
+
+        )
+        
+
+# ---------- App Setup ----------
+app = rx.App()
+app.add_page(index)
+
