@@ -5,31 +5,48 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy import create_engine
 
-# CSV file path
+# # CSV file path
+# csv_file = "sample_superstore_render.csv"
+
+# # Render Postgres connection string
+# db_url = "postgresql://sales_sv1k_user:lWYDXUHqVTwMzzJemVcNw9uR3nNxlEQu@dpg-d3mdv5d6ubrc73enh4i0-a.oregon-postgres.render.com/sales_sv1k"
+# # "postgresql://sales_sv1k_user:lWYDXUHqVTwMzzJemVcNw9uR3nNxlEQu@dpg-d3mdv5d6ubrc73enh4i0-a.oregon-postgres.render.com/sales_sv1k"
+
+# # Create SQLAlchemy engine
+# engine = create_engine(db_url)
+
+# # Read CSV with pandas
+# df = pd.read_csv(csv_file,encoding='ISO-8859-1')
+
+# # Optional: convert OrderDate to datetime
+# df['OrderDate'] = pd.to_datetime(df['OrderDate'], errors='coerce')
+
+# # Optional: convert OrderDate to datetime
+# df = df.dropna()
+
+# # Import into Postgres
+# # df.to_sql('sales', engine, if_exists='replace', index=False)
+
+# # print("CSV imported successfully!")
+
+# # reading from render postgres database
+# df_render = pd.read_sql("SELECT * FROM sales", engine)
+
+import os
+import pandas as pd
+import reflex as rx
+from sqlalchemy import create_engine
+
 csv_file = "sample_superstore_render.csv"
 
-# Render Postgres connection string
-db_url = "postgresql://sales_sv1k_user:lWYDXUHqVTwMzzJemVcNw9uR3nNxlEQu@dpg-d3mdv5d6ubrc73enh4i0-a.oregon-postgres.render.com/sales_sv1k"
-# "postgresql://sales_sv1k_user:lWYDXUHqVTwMzzJemVcNw9uR3nNxlEQu@dpg-d3mdv5d6ubrc73enh4i0-a.oregon-postgres.render.com/sales_sv1k"
-
-# Create SQLAlchemy engine
+# Use Render environment variable
+db_url = os.getenv("DATABASE_URL")
 engine = create_engine(db_url)
 
-# Read CSV with pandas
-df = pd.read_csv(csv_file,encoding='ISO-8859-1')
-
-# Optional: convert OrderDate to datetime
+df = pd.read_csv(csv_file, encoding='ISO-8859-1')
 df['OrderDate'] = pd.to_datetime(df['OrderDate'], errors='coerce')
-
-# Optional: convert OrderDate to datetime
 df = df.dropna()
-
-# Import into Postgres
 df.to_sql('sales', engine, if_exists='replace', index=False)
-
-# print("CSV imported successfully!")
-
-# reading from render postgres database
 df_render = pd.read_sql("SELECT * FROM sales", engine)
 
 # APP ------------------------
